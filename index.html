@@ -282,6 +282,25 @@
             border: none;
             pointer-events: auto;
         }
+
+        #pause-btn-trigger {
+            position: absolute;
+            top: calc(var(--safe-top) + 10px);
+            right: calc(var(--safe-right) + 20px);
+            z-index: 60;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.8);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            border: 2px solid var(--accent);
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>
@@ -316,6 +335,7 @@
         </div>
 
         <button id="shop-btn-trigger" class="hidden" onclick="toggleShop()">🛒</button>
+        <button id="pause-btn-trigger" class="hidden" onclick="togglePause()">⏸</button>
 
         <div id="main-menu" class="overlay">
             <div class="title-container">
@@ -372,7 +392,7 @@
             <div class="stat-row"><span id="label-final-kills">KILLS</span>: <span id="final-kills">0</span></div>
             <div class="menu-buttons" style="margin-top: 2rem;">
                 <button onclick="startGame()">TRY AGAIN</button>
-                <button onclick="showPanel('main-menu')">MAIN MENU</button>
+                <button id="btn-gameover-mainmenu" onclick="showPanel('main-menu')">MAIN MENU</button>
             </div>
         </div>
 
@@ -380,7 +400,7 @@
             <h1 id="label-paused">PAUSED</h1>
             <div class="menu-buttons">
                 <button onclick="togglePause()">RESUME</button>
-                <button onclick="showPanel('main-menu')">QUIT</button>
+                <button id="btn-pause-mainmenu" onclick="quitToMenu()">MAIN MENU</button>
             </div>
         </div>
     </div>
@@ -402,6 +422,8 @@
         let particles = [];
         let wave = 1;
         let kills = 0;
+        let waveKills = 0;
+        let zombiesSpawnedThisWave = 0;
         let spawnTimer = 0;
         let isPaused = false;
         let isShopOpen = false;
@@ -476,12 +498,32 @@
         };
 
         const UPGRADES = [
-            { id: 'defense', nameKey: 'defense', cost: 20, effect: 0.05 },
-            { id: 'lives', nameKey: 'lives', cost: 15, effect: 20 },
-            { id: 'firerate', nameKey: 'firerate', cost: 30, effect: 40 },
-            { id: 'damage', nameKey: 'damage', cost: 30, effect: 5 },
-            { id: 'x2money', nameKey: 'x2money', cost: 150, effect: 2 }
+            { id: 'defense', nameKey: 'defense', baseCost: 20, effect: 0.05 },
+            { id: 'lives', nameKey: 'lives', baseCost: 15, effect: 20 },
+            { id: 'firerate', nameKey: 'firerate', baseCost: 30, effect: 40 },
+            { id: 'damage', nameKey: 'damage', baseCost: 30, effect: 5 },
+            { id: 'x2money', nameKey: 'x2money', baseCost: 150, effect: 2 }
         ];
+
+        const MAX_LEVEL_DEFAULT = 25;
+        const MAX_LEVELS_BY_ID = {
+            defense: 100,
+            firerate: 100,
+            damage: 100,
+            x2money: 5
+        };
+
+        function getMaxUpgradeLevel(id) {
+            return MAX_LEVELS_BY_ID[id] ?? MAX_LEVEL_DEFAULT;
+        }
+
+        function getUpgradeCost(id) {
+            const upg = UPGRADES.find(u => u.id === id);
+            if (!upg || !player) return 0;
+            const baseCost = upg.baseCost ?? upg.cost ?? 0;
+            const lvl = player.levels?.[id] ?? 0;
+            return baseCost + (lvl * 10);
+        }
 
         class Player {
             constructor() {
@@ -579,10 +621,13 @@
                 this.x = player.x + Math.cos(angle) * spawnDist;
                 this.y = player.y + Math.sin(angle) * spawnDist;
                 this.radius = 18;
-                this.hp = 15 + (wave * 12);
+                const bossWave = (wave % 5 === 0);
+                const baseHp = 15 + (wave * 12);
+                this.hp = Math.floor(baseHp * (bossWave ? 1.8 : 1));
                 this.maxHp = this.hp;
-                this.speed = 1.2 + Math.random() * 1.5 + (wave * 0.1);
-                this.damage = 10;
+                const baseSpeed = 1.2 + Math.random() * 1.5 + (wave * 0.1);
+                this.speed = baseSpeed * (bossWave ? 1.2 : 1);
+                this.damage = Math.floor(10 * (bossWave ? 1.5 : 1));
                 this.frame = Math.random() * 10;
             }
 
@@ -642,6 +687,7 @@
                             const reward = Math.floor((10 + Math.random() * 5) * player.moneyMult);
                             player.money += reward;
                             kills++;
+                            waveKills++;
                             spawnParticles(z.x, z.y, '#44ff44', 8, `+$${reward}`);
                             zombies.splice(i, 1);
                         }
@@ -776,6 +822,8 @@
             document.getElementById('label-final-wave').textContent = t.wave;
             document.getElementById('label-final-kills').textContent = t.kills;
             document.getElementById('label-wasted').textContent = t.wasted;
+            document.getElementById('btn-gameover-mainmenu').textContent = t.mainmenu;
+            document.getElementById('btn-pause-mainmenu').textContent = t.mainmenu;
             if (isShopOpen) renderShop();
         }
 
@@ -785,6 +833,7 @@
             if (id === 'main-menu') {
                 state = 'MENU';
                 document.getElementById('shop-btn-trigger').classList.add('hidden');
+                document.getElementById('pause-btn-trigger').classList.add('hidden');
             }
         }
 
@@ -795,6 +844,8 @@
             particles = [];
             wave = 1;
             kills = 0;
+            waveKills = 0;
+            zombiesSpawnedThisWave = 0;
             spawnTimer = 0;
             isPaused = false;
             isShopOpen = false;
@@ -802,6 +853,7 @@
             document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
             document.getElementById('hud').classList.remove('hidden');
             document.getElementById('shop-btn-trigger').classList.remove('hidden');
+            document.getElementById('pause-btn-trigger').classList.remove('hidden');
         }
 
         function togglePause() {
@@ -809,6 +861,22 @@
             isPaused = !isPaused;
             state = isPaused ? 'PAUSED' : 'PLAYING';
             document.getElementById('pause-menu').classList.toggle('hidden', !isPaused);
+        }
+
+        function quitToMenu() {
+            isPaused = false;
+            isShopOpen = false;
+            state = 'MENU';
+            player = null;
+            zombies = [];
+            bullets = [];
+            particles = [];
+            document.getElementById('pause-menu').classList.add('hidden');
+            document.getElementById('shop-overlay').classList.add('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('shop-btn-trigger').classList.add('hidden');
+            document.getElementById('pause-btn-trigger').classList.add('hidden');
+            showPanel('main-menu');
         }
 
         function toggleShop() {
@@ -824,15 +892,16 @@
             const t = i18n[language];
             document.getElementById('shop-money').textContent = player.money;
             container.innerHTML = UPGRADES.map(upg => {
-                const canAfford = player.money >= upg.cost;
-                const isMaxed = upg.id === 'x2money' && player.levels[upg.id] >= 1;
+                const cost = getUpgradeCost(upg.id);
+                const canAfford = player.money >= cost;
+                const isMaxed = player.levels[upg.id] >= getMaxUpgradeLevel(upg.id);
                 return `
                     <div class="shop-item">
                         <div class="shop-item-info">
                             <div>${t[upg.nameKey] || upg.id}</div>
                             <div>${t.level} ${player.levels[upg.id]}</div>
                         </div>
-                        <div style="color: var(--accent)">${isMaxed ? 'MAX' : '$' + upg.cost}</div>
+                        <div style="color: var(--accent)">${isMaxed ? 'MAX' : '$' + cost}</div>
                         <button ${canAfford && !isMaxed ? '' : 'disabled'} onclick="buyUpgrade('${upg.id}')">${isMaxed ? '---' : t.buy}</button>
                     </div>
                 `;
@@ -841,20 +910,18 @@
 
         function buyUpgrade(id) {
             const upg = UPGRADES.find(u => u.id === id);
-            if (player.money >= upg.cost) {
-                player.money -= upg.cost;
+            if (!upg) return;
+            if (player.levels[id] >= getMaxUpgradeLevel(id)) return;
+            const cost = getUpgradeCost(id);
+            if (player.money >= cost) {
+                player.money -= cost;
                 player.levels[id]++;
 
                 if (id === 'defense') player.defense = Math.min(0.8, player.defense + upg.effect);
                 if (id === 'lives') { player.maxHp += upg.effect; player.hp = player.maxHp; }
                 if (id === 'firerate') player.fireRate = Math.max(100, player.fireRate - upg.effect);
                 if (id === 'damage') player.damage += upg.effect;
-                if (id === 'x2money') player.moneyMult = 2;
-
-                // Increase cost for next purchase (except one-time x2money)
-                if (id !== 'x2money') {
-                    upg.cost = Math.floor(upg.cost * 1.6);
-                }
+                if (id === 'x2money') player.moneyMult *= upg.effect;
 
                 renderShop();
                 updateHUD();
@@ -887,19 +954,30 @@
             requestAnimationFrame(gameLoop);
         }
 
+        function getWaveZombieCount(w) {
+            // Wave 1: 5 zombies
+            // Each next wave: +5
+            // Every 5th wave: +10 instead of +5 (i.e., extra +5 on waves 5,10,15,...)
+            return 5 + (w - 1) * 5 + Math.floor(w / 5) * 5;
+        }
+
         function update() {
             if (!player) return;
             player.update();
             spawnTimer--;
             if (spawnTimer <= 0) {
-                const maxZombies = 6 + (wave * 4);
-                if (zombies.length < maxZombies) {
+                const waveTarget = getWaveZombieCount(wave);
+                if (zombiesSpawnedThisWave < waveTarget) {
                     zombies.push(new Zombie(wave));
+                    zombiesSpawnedThisWave++;
                     spawnTimer = Math.max(8, 50 - (wave * 2));
                 }
             }
-            if (kills >= wave * 15) {
+            const waveTarget = getWaveZombieCount(wave);
+            if (waveKills >= waveTarget && zombies.length === 0) {
                 wave++;
+                waveKills = 0;
+                zombiesSpawnedThisWave = 0;
                 spawnParticles(player.x, player.y, '#fff', 20, `WAVE ${wave}`);
             }
             for (let i = zombies.length - 1; i >= 0; i--) zombies[i].update();
