@@ -179,7 +179,7 @@
             max-height: 70vh;
             overflow-y: auto;
             box-shadow: 0 0 40px rgba(255, 77, 77, 0.4);
-            touch-action: pan-y !important; 
+            touch-action: pan-y !important;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -505,7 +505,7 @@
             update() {
                 let dx = 0;
                 let dy = 0;
-                
+
                 if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
                 if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
                 if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
@@ -844,7 +844,7 @@
             if (player.money >= upg.cost) {
                 player.money -= upg.cost;
                 player.levels[id]++;
-                
+
                 if (id === 'defense') player.defense = Math.min(0.8, player.defense + upg.effect);
                 if (id === 'lives') { player.maxHp += upg.effect; player.hp = player.maxHp; }
                 if (id === 'firerate') player.fireRate = Math.max(100, player.fireRate - upg.effect);
@@ -919,11 +919,11 @@
             if (player && (state === 'PLAYING' || state === 'PAUSED' || state === 'SHOP' || state === 'GAMEOVER')) {
                 ctx.save();
                 ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
-                
+
                 // Floor
                 ctx.fillStyle = '#0a0a0a';
                 ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
-                
+
                 // Grid
                 ctx.strokeStyle = '#1a1a1a';
                 ctx.lineWidth = 1;
@@ -933,18 +933,18 @@
                 for(let y = 0; y <= WORLD_SIZE; y += 60) {
                     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_SIZE, y); ctx.stroke();
                 }
-                
+
                 // Border
                 ctx.strokeStyle = '#ff4d4d';
                 ctx.lineWidth = 10;
                 ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
-                
+
                 particles.forEach(p => p.draw());
                 bullets.forEach(b => b.draw());
                 zombies.forEach(z => z.draw());
                 player.draw();
                 ctx.restore();
-                
+
                 // Vignette
                 const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height) * 0.6);
                 grad.addColorStop(0, 'rgba(0,0,0,0)');
